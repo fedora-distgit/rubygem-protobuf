@@ -11,17 +11,11 @@ Source0: https://rubygems.org/gems/%{gem_name}-%{version}.gem
 BuildRequires: ruby(release)
 BuildRequires: rubygems-devel
 BuildRequires: ruby
-# BuildRequires: rubygem(benchmark-ips)
 # BuildRequires: rubygem(ffi-rzmq)
-# BuildRequires: rubygem(rspec) >= 3.0
-# BuildRequires: rubygem(rubocop) >= 0.38.0
-# BuildRequires: rubygem(rubocop) < 0.39
+BuildRequires: rubygem(rspec) >= 3.0
 # BuildRequires: rubygem(parser) = 2.3.0.6
-# BuildRequires: rubygem(simplecov)
 # BuildRequires: rubygem(timecop)
 # BuildRequires: rubygem(yard)
-# BuildRequires: rubygem(pry-byebug)
-# BuildRequires: rubygem(pry-stack_explorer)
 # BuildRequires: rubygem(varint)
 # BuildRequires: rubygem(ruby-prof)
 BuildArch: noarch
@@ -42,11 +36,7 @@ Documentation for %{name}.
 %setup -q -n %{gem_name}-%{version}
 
 %build
-# Create the gem as gem install only works on a gem file
 gem build ../%{gem_name}-%{version}.gemspec
-
-# %%gem_install compiles any C extensions and installs the gem into ./%%gem_dir
-# by default, so that we can move it into the buildroot in %%install
 %gem_install
 
 %install
@@ -63,22 +53,20 @@ find %{buildroot}%{gem_instdir}/bin -type f | xargs chmod a+x
 
 %check
 pushd .%{gem_instdir}
-# rspec spec
+
+# Avoid bundler dependency
+sed -i '/require .bundler./ s/^/#/g' spec/spec_helper.rb
+
+rspec spec
 popd
 
 %files
 %dir %{gem_instdir}
 %{_bindir}/protoc-gen-ruby
 %{_bindir}/rpc_server
-%exclude %{gem_instdir}/.gitignore
-%exclude %{gem_instdir}/.rubocop.yml
-%exclude %{gem_instdir}/.rubocop_todo.yml
-%exclude %{gem_instdir}/.travis.yml
-%exclude %{gem_instdir}/.yardopts
-%{gem_instdir}/CHANGES.md
+%exclude %{gem_instdir}/.*
 %license %{gem_instdir}/LICENSE.txt
 %{gem_instdir}/bin
-%{gem_instdir}/install-protobuf.sh
 %{gem_libdir}
 %{gem_instdir}/profile.html
 %{gem_instdir}/proto
@@ -94,6 +82,8 @@ popd
 %{gem_instdir}/Rakefile
 %{gem_instdir}/protobuf.gemspec
 %{gem_instdir}/spec
+%doc %{gem_instdir}/CHANGES.md
+%{gem_instdir}/install-protobuf.sh
 
 %changelog
 * Fri Oct 30 2020 Pavel Valena <pvalena@redhat.com> - 3.10.3-1
