@@ -18,6 +18,9 @@ BuildRequires: rubygem(rspec) >= 3.0
 # BuildRequires: rubygem(yard)
 # BuildRequires: rubygem(varint)
 # BuildRequires: rubygem(ruby-prof)
+BuildRequires: rubygem(middleware)
+BuildRequires: rubygem(activesupport)
+BuildRequires: rubygem(timecop)
 BuildArch: noarch
 
 %description
@@ -55,7 +58,10 @@ find %{buildroot}%{gem_instdir}/bin -type f | xargs chmod a+x
 pushd .%{gem_instdir}
 
 # Avoid bundler dependency
-sed -i '/require .bundler./ s/^/#/g' spec/spec_helper.rb
+sed -i -e '/require .pry./ s/^/#/g' \
+       -e '/require .bundler./ s/^/#/g' \
+       -e '/^Bundler\./ s/^/#/g' \
+  spec/spec_helper.rb
 
 rspec spec
 popd
