@@ -12,7 +12,7 @@ BuildRequires: ruby(release)
 BuildRequires: rubygems-devel
 BuildRequires: ruby
 # BuildRequires: rubygem(ffi-rzmq)
-BuildRequires: rubygem(rspec) >= 3.0
+BuildRequires: rubygem(rspec)
 # BuildRequires: rubygem(parser) = 2.3.0.6
 # BuildRequires: rubygem(timecop)
 # BuildRequires: rubygem(yard)
@@ -21,6 +21,7 @@ BuildRequires: rubygem(rspec) >= 3.0
 BuildRequires: rubygem(middleware)
 BuildRequires: rubygem(activesupport)
 BuildRequires: rubygem(timecop)
+BuildRequires: rubygem(thor)
 BuildArch: noarch
 
 %description
