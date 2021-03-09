@@ -63,6 +63,28 @@ sed -i -e '/require .pry./ s/^/#/g' \
        -e '/^Bundler\./ s/^/#/g' \
   spec/spec_helper.rb
 
+# ffi-rzmq is not in fedora
+# Removing the require does not seem to affect the test suite anyway
+# as long as we require the correct file.
+sed -i -e "s/require .protobuf\/zmq./require 'protobuf\/rpc\/connectors\/ping'/g" \
+  spec/lib/protobuf/rpc/connectors/ping_spec.rb
+
+# This test fails only without access to internet.
+sed -i -e '/context .when a select timeout is fired./,/^    end$/ s/^/#/' \
+  spec/lib/protobuf/rpc/connectors/ping_spec.rb
+
+# There is not currently a ffi-rzmq gem in Fedora,
+# let's disable test suites testing the rzmq capability.
+for file in  spec/lib/protobuf/rpc/servers/zmq/server_spec.rb \
+             spec/lib/protobuf/rpc/servers/zmq/util_spec.rb \
+             spec/functional/zmq_server_spec.rb \
+	     spec/lib/protobuf/rpc/connectors/zmq_spec.rb ; do
+
+  mv $file{,.bak}
+done
+
+sed -i -e "/context ..*zmq.*. do/,/^      end$/ s/^/#/g" spec/lib/protobuf/cli_spec.rb
+
 rspec spec
 popd
 
@@ -70,7 +92,6 @@ popd
 %dir %{gem_instdir}
 %{_bindir}/protoc-gen-ruby
 %{_bindir}/rpc_server
-%exclude %{gem_instdir}/.*
 %license %{gem_instdir}/LICENSE.txt
 %{gem_instdir}/bin
 %{gem_libdir}
@@ -78,6 +99,7 @@ popd
 %{gem_instdir}/proto
 %{gem_instdir}/varint_prof.rb
 %exclude %{gem_cache}
+%exclude %{gem_instdir}/.*
 %{gem_spec}
 
 %files doc
