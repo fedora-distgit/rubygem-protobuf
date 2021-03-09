@@ -22,6 +22,7 @@ BuildRequires: rubygem(middleware)
 BuildRequires: rubygem(activesupport)
 BuildRequires: rubygem(timecop)
 BuildRequires: rubygem(thor)
+BuildRequires: rubygem(thread_safe)
 BuildArch: noarch
 
 %description
