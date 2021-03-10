@@ -1,0 +1,552 @@
+diff --git a/lib/protobuf/field/bytes_field.rb b/lib/protobuf/field/bytes_field.rb
+index 81a3634d..e120835c 100644
+--- a/lib/protobuf/field/bytes_field.rb
++++ b/lib/protobuf/field/bytes_field.rb
+@@ -48,7 +48,18 @@ def wire_type
+ 
+       def coerce!(value)
+         case value
+-        when String, Symbol
++        when String
++          if value.encoding == Encoding::ASCII_8BIT
++            # This is a "binary" string
++            value
++          else
++            # Assume the value is Base64 encoded (from JSON)
++            # Ideally we'd do the Base64 decoding while processing the JSON,
++            # but this is tricky to do since we don't know the protobuf field
++            # types when we do that.
++            Base64.decode64(value)
++          end
++        when Symbol
+           value.to_s
+         when NilClass
+           nil
+@@ -59,7 +70,7 @@ def coerce!(value)
+         end
+       end
+ 
+-      def json_encode(value)
++      def json_encode(value, options={})
+         Base64.strict_encode64(value)
+       end
+     end
+diff --git a/lib/protobuf/field/enum_field.rb b/lib/protobuf/field/enum_field.rb
+index 6993faff..12867adf 100644
+--- a/lib/protobuf/field/enum_field.rb
++++ b/lib/protobuf/field/enum_field.rb
+@@ -37,6 +37,11 @@ def coerce!(value)
+         type_class.fetch(value) || fail(TypeError, "Invalid Enum value: #{value.inspect} for #{name}")
+       end
+ 
++      def json_encode(value, options={})
++        enum = type_class.enums.find { |e| e.to_i == value }
++        enum.to_s(:name)
++      end
++
+       private
+ 
+       ##
+diff --git a/lib/protobuf/field/field_array.rb b/lib/protobuf/field/field_array.rb
+index e4f2eb1a..47f9c379 100644
+--- a/lib/protobuf/field/field_array.rb
++++ b/lib/protobuf/field/field_array.rb
+@@ -49,14 +49,14 @@ def to_hash_value
+       # Return a hash-representation of the given values for this field type
+       # that is safe to convert to JSON.
+       # The value in this case would be an array.
+-      def to_json_hash_value
++      def to_json_hash_value(options = {})
+         if field.respond_to?(:json_encode)
+           map do |value|
+             field.json_encode(value)
+           end
+         else
+           map do |value|
+-            value.respond_to?(:to_json_hash_value) ? value.to_json_hash_value : value
++            value.respond_to?(:to_json_hash_value) ? value.to_json_hash_value(options) : value
+           end
+         end
+       end
+@@ -81,6 +81,8 @@ def normalize(value)
+ 
+         if field.is_a?(::Protobuf::Field::EnumField)
+           field.type_class.fetch(value)
++        elsif field.is_a?(::Protobuf::Field::BytesField)
++          field.coerce!(value)
+         elsif field.is_a?(::Protobuf::Field::MessageField) && value.is_a?(field.type_class)
+           value
+         elsif field.is_a?(::Protobuf::Field::MessageField) && value.respond_to?(:to_hash)
+diff --git a/lib/protobuf/field/field_hash.rb b/lib/protobuf/field/field_hash.rb
+index 36b26447..94eedbb9 100644
+--- a/lib/protobuf/field/field_hash.rb
++++ b/lib/protobuf/field/field_hash.rb
+@@ -58,14 +58,14 @@ def to_hash_value
+       # The value in this case would be the hash itself, right? Unfortunately
+       # not because the values of the map could be messages themselves that we
+       # need to transform.
+-      def to_json_hash_value
++      def to_json_hash_value(options = {})
+         if field.respond_to?(:json_encode)
+           each_with_object({}) do |(key, value), hash|
+             hash[key] = field.json_encode(value)
+           end
+         else
+           each_with_object({}) do |(key, value), hash|
+-            hash[key] = value.respond_to?(:to_json_hash_value) ? value.to_json_hash_value : value
++            hash[key] = value.respond_to?(:to_json_hash_value) ? value.to_json_hash_value(options) : value
+           end
+         end
+       end
+diff --git a/lib/protobuf/field/int64_field.rb b/lib/protobuf/field/int64_field.rb
+index 3b338894..f2597b25 100644
+--- a/lib/protobuf/field/int64_field.rb
++++ b/lib/protobuf/field/int64_field.rb
+@@ -29,6 +29,13 @@ def acceptable?(val)
+         return false
+       end
+ 
++      def json_encode(value, options = {})
++        if options[:proto3]
++          value == 0 ? nil : value.to_s
++        else
++          value
++        end
++      end
+     end
+   end
+ end
+diff --git a/lib/protobuf/field/sint64_field.rb b/lib/protobuf/field/sint64_field.rb
+index 2aba7dfa..0c1c0856 100644
+--- a/lib/protobuf/field/sint64_field.rb
++++ b/lib/protobuf/field/sint64_field.rb
+@@ -16,6 +16,13 @@ def self.min
+         INT64_MIN
+       end
+ 
++      def json_encode(value, options = {})
++        if options[:proto3]
++          value == 0 ? nil : value.to_s
++        else
++          value
++        end
++      end
+     end
+   end
+ end
+diff --git a/lib/protobuf/field/string_field.rb b/lib/protobuf/field/string_field.rb
+index 6c9c278f..551bdd23 100644
+--- a/lib/protobuf/field/string_field.rb
++++ b/lib/protobuf/field/string_field.rb
+@@ -43,7 +43,7 @@ def encode(value)
+         "#{::Protobuf::Field::VarintField.encode(value_to_encode.bytesize)}#{value_to_encode}"
+       end
+ 
+-      def json_encode(value)
++      def json_encode(value, options={})
+         value
+       end
+     end
+diff --git a/lib/protobuf/field/uint64_field.rb b/lib/protobuf/field/uint64_field.rb
+index 8a060f14..df041fc5 100644
+--- a/lib/protobuf/field/uint64_field.rb
++++ b/lib/protobuf/field/uint64_field.rb
+@@ -16,6 +16,13 @@ def self.min
+         0
+       end
+ 
++      def json_encode(value, options = {})
++        if options[:proto3]
++          value == 0 ? nil : value.to_s
++        else
++          value
++        end
++      end
+     end
+   end
+ end
+diff --git a/lib/protobuf/message.rb b/lib/protobuf/message.rb
+index a13c0d19..b5b723f5 100644
+--- a/lib/protobuf/message.rb
++++ b/lib/protobuf/message.rb
+@@ -21,6 +21,22 @@ def self.to_json
+       name
+     end
+ 
++    def self.from_json(json)
++      fields = normalize_json(JSON.parse(json))
++      new(fields)
++    end
++
++    def self.normalize_json(ob)
++      case ob
++      when Array
++        ob.map { |value| normalize_json(value) }
++      when Hash
++        Hash[*ob.flat_map { |key, value| [key.underscore, normalize_json(value)] }]
++      else
++        ob
++      end
++    end
++
+     ##
+     # Constructor
+     #
+@@ -134,29 +150,36 @@ def to_hash_with_string_keys
+     end
+ 
+     def to_json(options = {})
+-      to_json_hash.to_json(options)
++      to_json_hash(options).to_json(options)
+     end
+ 
+     # Return a hash-representation of the given fields for this message type that
+     # is safe to convert to JSON.
+-    def to_json_hash
++    def to_json_hash(options = {})
+       result = {}
+ 
++      proto3 = options[:proto3] || options[:lower_camel_case]
++
+       @values.each_key do |field_name|
+         value = self[field_name]
+         field = self.class.get_field(field_name, true)
+ 
+         # NB: to_json_hash_value should come before json_encode so as to handle
+         # repeated fields without extra logic.
+-        hashed_value = if value.respond_to?(:to_json_hash_value)
+-                         value.to_json_hash_value
++        hashed_value = if value.respond_to?(:to_json_hash_value) && !field.is_a?(::Protobuf::Field::EnumField)
++                         value.to_json_hash_value(options)
+                        elsif field.respond_to?(:json_encode)
+-                         field.json_encode(value)
++                         field.json_encode(value, options)
+                        else
+                          value
+                        end
+ 
+-        result[field.name] = hashed_value
++        if proto3 && (hashed_value.nil? || value == field.class.default rescue field.default rescue nil)
++          result.delete(field.name)
++        else
++          key = proto3 ? field.name.to_s.camelize(:lower).to_sym : field.name
++          result[key] = hashed_value
++        end
+       end
+ 
+       result
+diff --git a/spec/encoding/all_types_spec.rb b/spec/encoding/all_types_spec.rb
+index fbd38b46..04ddb866 100644
+--- a/spec/encoding/all_types_spec.rb
++++ b/spec/encoding/all_types_spec.rb
+@@ -18,7 +18,7 @@
+       :optional_double => 112,
+       :optional_bool => true,
+       :optional_string => "115",
+-      :optional_bytes => "116",
++      :optional_bytes => "116".force_encoding(Encoding::ASCII_8BIT),
+       :optional_nested_message => Protobuf_unittest::TestAllTypes::NestedMessage.new(:bb => 118),
+       :optional_foreign_message => Protobuf_unittest::ForeignMessage.new(:c => 119),
+       :optional_import_message => Protobuf_unittest_import::ImportMessage.new(:d => 120),
+@@ -43,7 +43,7 @@
+       :repeated_double => [212, 312],
+       :repeated_bool => [true, false],
+       :repeated_string => ["215", "315"],
+-      :repeated_bytes => ["216", "316"],
++      :repeated_bytes => ["216".force_encoding(Encoding::ASCII_8BIT), "316".force_encoding(Encoding::ASCII_8BIT)],
+       :repeated_nested_message => [
+         ::Protobuf_unittest::TestAllTypes::NestedMessage.new(:bb => 218),
+         ::Protobuf_unittest::TestAllTypes::NestedMessage.new(:bb => 318),
+@@ -88,7 +88,7 @@
+       :default_double => 412,
+       :default_bool => false,
+       :default_string => "415",
+-      :default_bytes => "416",
++      :default_bytes => "416".force_encoding(Encoding::ASCII_8BIT),
+       :default_nested_enum => ::Protobuf_unittest::TestAllTypes::NestedEnum::FOO,
+       :default_foreign_enum => ::Protobuf_unittest::ForeignEnum::FOREIGN_FOO,
+       :default_import_enum => ::Protobuf_unittest_import::ImportEnum::IMPORT_FOO,
+diff --git a/spec/encoding/extreme_values_spec.rb b/spec/encoding/extreme_values_spec.rb
+index 477e695a..7f3d516f 100644
+Binary files a/spec/encoding/extreme_values_spec.rb and b/spec/encoding/extreme_values_spec.rb differ
+diff --git a/spec/lib/protobuf/field/enum_field_spec.rb b/spec/lib/protobuf/field/enum_field_spec.rb
+index cd72760d..c2e04eed 100644
+--- a/spec/lib/protobuf/field/enum_field_spec.rb
++++ b/spec/lib/protobuf/field/enum_field_spec.rb
+@@ -23,4 +23,22 @@
+       expect(message.decode(instance.encode).enum).to eq(-33)
+     end
+   end
++
++  # https://developers.google.com/protocol-buffers/docs/proto3#json
++  describe '.{to_json, from_json}' do
++    it 'serialises enum value as string' do
++      instance = message.new(:enum => :POSITIVE)
++      expect(instance.to_json).to eq('{"enum":"POSITIVE"}')
++    end
++
++    it 'deserialises enum value as integer' do
++      instance = message.from_json('{"enum":22}')
++      expect(instance.enum).to eq(22)
++    end
++
++    it 'deserialises enum value as string' do
++      instance = message.from_json('{"enum":"NEGATIVE"}')
++      expect(instance.enum).to eq(-33)
++    end
++  end
+ end
+diff --git a/spec/lib/protobuf/field/fixed64_field_spec.rb b/spec/lib/protobuf/field/fixed64_field_spec.rb
+index d7feb120..00ad743a 100644
+--- a/spec/lib/protobuf/field/fixed64_field_spec.rb
++++ b/spec/lib/protobuf/field/fixed64_field_spec.rb
+@@ -4,4 +4,30 @@
+ 
+   it_behaves_like :packable_field, described_class
+ 
++  let(:message) do
++    Class.new(::Protobuf::Message) do
++      optional :fixed64, :some_field, 1
++    end
++  end
++
++  # https://developers.google.com/protocol-buffers/docs/proto3#json
++  describe '.{to_json, from_json}' do
++    it 'serialises 0' do
++      instance = message.new(some_field: 0)
++      expect(instance.to_json(proto3: true)).to eq('{}')
++      expect(instance.to_json).to eq('{"some_field":0}')
++    end
++
++    it 'serialises max value' do
++      instance = message.new(some_field: described_class.max)
++      expect(instance.to_json(proto3: true)).to eq('{"someField":"18446744073709551615"}')
++      expect(instance.to_json).to eq('{"some_field":18446744073709551615}')
++    end
++
++    it 'serialises min value' do
++      instance = message.new(some_field: described_class.min)
++      expect(instance.to_json(proto3: true)).to eq('{}')
++      expect(instance.to_json).to eq('{"some_field":0}')
++    end
++  end
+ end
+diff --git a/spec/lib/protobuf/field/int64_field_spec.rb b/spec/lib/protobuf/field/int64_field_spec.rb
+index 1bbe7c04..d0c77d34 100644
+--- a/spec/lib/protobuf/field/int64_field_spec.rb
++++ b/spec/lib/protobuf/field/int64_field_spec.rb
+@@ -4,4 +4,30 @@
+ 
+   it_behaves_like :packable_field, described_class
+ 
++  let(:message) do
++    Class.new(::Protobuf::Message) do
++      optional :int64, :some_field, 1
++    end
++  end
++
++  # https://developers.google.com/protocol-buffers/docs/proto3#json
++  describe '.{to_json, from_json}' do
++    it 'serialises 0' do
++      instance = message.new(some_field: 0)
++      expect(instance.to_json(proto3: true)).to eq('{}')
++      expect(instance.to_json).to eq('{"some_field":0}')
++    end
++
++    it 'serialises max value' do
++      instance = message.new(some_field: described_class.max)
++      expect(instance.to_json(proto3: true)).to eq('{"someField":"9223372036854775807"}')
++      expect(instance.to_json).to eq('{"some_field":9223372036854775807}')
++    end
++
++    it 'serialises min value' do
++      instance = message.new(some_field: described_class.min)
++      expect(instance.to_json(proto3: true)).to eq('{"someField":"-9223372036854775808"}')
++      expect(instance.to_json).to eq('{"some_field":-9223372036854775808}')
++    end
++  end
+ end
+diff --git a/spec/lib/protobuf/field/sfixed64_field_spec.rb b/spec/lib/protobuf/field/sfixed64_field_spec.rb
+index f380ed5d..7988f45f 100644
+--- a/spec/lib/protobuf/field/sfixed64_field_spec.rb
++++ b/spec/lib/protobuf/field/sfixed64_field_spec.rb
+@@ -6,4 +6,30 @@
+     let(:value) { [-1, 0, 1] }
+   end
+ 
++  let(:message) do
++    Class.new(::Protobuf::Message) do
++      optional :sfixed64, :some_field, 1
++    end
++  end
++
++  # https://developers.google.com/protocol-buffers/docs/proto3#json
++  describe '.{to_json, from_json}' do
++    it 'serialises 0' do
++      instance = message.new(some_field: 0)
++      expect(instance.to_json(proto3: true)).to eq('{}')
++      expect(instance.to_json).to eq('{"some_field":0}')
++    end
++
++    it 'serialises max value' do
++      instance = message.new(some_field: described_class.max)
++      expect(instance.to_json(proto3: true)).to eq('{"someField":"9223372036854775807"}')
++      expect(instance.to_json).to eq('{"some_field":9223372036854775807}')
++    end
++
++    it 'serialises min value as string' do
++      instance = message.new(some_field: described_class.min)
++      expect(instance.to_json(proto3: true)).to eq('{"someField":"-9223372036854775808"}')
++      expect(instance.to_json).to eq('{"some_field":-9223372036854775808}')
++    end
++  end
+ end
+diff --git a/spec/lib/protobuf/field/sint64_field_spec.rb b/spec/lib/protobuf/field/sint64_field_spec.rb
+index 84ca7304..e6fc05ff 100644
+--- a/spec/lib/protobuf/field/sint64_field_spec.rb
++++ b/spec/lib/protobuf/field/sint64_field_spec.rb
+@@ -6,4 +6,30 @@
+     let(:value) { [-1, 0, 1] }
+   end
+ 
++  let(:message) do
++    Class.new(::Protobuf::Message) do
++      optional :sint64, :some_field, 1
++    end
++  end
++
++  # https://developers.google.com/protocol-buffers/docs/proto3#json
++  describe '.{to_json, from_json}' do
++    it 'serialises 0' do
++      instance = message.new(some_field: 0)
++      expect(instance.to_json(proto3: true)).to eq('{}')
++      expect(instance.to_json).to eq('{"some_field":0}')
++    end
++
++    it 'serialises max value as string' do
++      instance = message.new(some_field: described_class.max)
++      expect(instance.to_json(proto3: true)).to eq('{"someField":"9223372036854775807"}')
++      expect(instance.to_json).to eq('{"some_field":9223372036854775807}')
++    end
++
++    it 'serialises min value as string' do
++      instance = message.new(some_field: described_class.min)
++      expect(instance.to_json(proto3: true)).to eq('{"someField":"-9223372036854775808"}')
++      expect(instance.to_json).to eq('{"some_field":-9223372036854775808}')
++    end
++  end
+ end
+diff --git a/spec/lib/protobuf/field/uint64_field_spec.rb b/spec/lib/protobuf/field/uint64_field_spec.rb
+index 61b8d1b9..90bc0306 100644
+--- a/spec/lib/protobuf/field/uint64_field_spec.rb
++++ b/spec/lib/protobuf/field/uint64_field_spec.rb
+@@ -4,4 +4,30 @@
+ 
+   it_behaves_like :packable_field, described_class
+ 
++  let(:message) do
++    Class.new(::Protobuf::Message) do
++      optional :uint64, :some_field, 1
++    end
++  end
++
++  # https://developers.google.com/protocol-buffers/docs/proto3#json
++  describe '.{to_json, from_json}' do
++    it 'serialises 0' do
++      instance = message.new(some_field: 0)
++      expect(instance.to_json(proto3: true)).to eq('{}')
++      expect(instance.to_json).to eq('{"some_field":0}')
++    end
++
++    it 'serialises max value' do
++      instance = message.new(some_field: described_class.max)
++      expect(instance.to_json(proto3: true)).to eq('{"someField":"18446744073709551615"}')
++      expect(instance.to_json).to eq('{"some_field":18446744073709551615}')
++    end
++
++    it 'serialises min value' do
++      instance = message.new(some_field: described_class.min)
++      expect(instance.to_json(proto3: true)).to eq('{}')
++      expect(instance.to_json).to eq('{"some_field":0}')
++    end
++  end
+ end
+diff --git a/spec/lib/protobuf/message_spec.rb b/spec/lib/protobuf/message_spec.rb
+index 96668b67..6a3f6d9c 100644
+--- a/spec/lib/protobuf/message_spec.rb
++++ b/spec/lib/protobuf/message_spec.rb
+@@ -429,7 +429,7 @@
+     specify { expect(subject.to_json).to eq '{"name":"Test Name","active":false}' }
+ 
+     context 'for byte fields' do
+-      let(:bytes) { "\x06\x8D1HP\x17:b" }
++      let(:bytes) { "\x06\x8D1HP\x17:b".force_encoding(Encoding::ASCII_8BIT) }
+ 
+       subject do
+         ::Test::ResourceFindRequest.new(:widget_bytes => [bytes])
+@@ -437,6 +437,36 @@
+ 
+       specify { expect(subject.to_json).to eq '{"widget_bytes":["Bo0xSFAXOmI="]}' }
+     end
++
++    context 'using proto3 produces lower case field names' do
++      let(:bytes) { "\x06\x8D1HP\x17:b".force_encoding(Encoding::ASCII_8BIT) }
++
++      subject do
++        ::Test::ResourceFindRequest.new(:widget_bytes => [bytes])
++      end
++
++      specify { expect(subject.to_json(:proto3 => true)).to eq '{"widgetBytes":["Bo0xSFAXOmI="]}' }
++    end
++  end
++
++  describe '.from_json' do
++    it 'decodes optional bytes field with base64' do
++      expected_single_bytes = "\x06\x8D1HP\x17:b".unpack('C*')
++      single_bytes = ::Test::ResourceFindRequest
++                     .from_json('{"singleBytes":"Bo0xSFAXOmI="}')
++                     .single_bytes.unpack('C*')
++
++      expect(single_bytes).to(eq(expected_single_bytes))
++    end
++
++    it 'decodes repeated bytes field with base64' do
++      expected_widget_bytes = ["\x06\x8D1HP\x17:b"].map { |s| s.unpack('C*') }
++      widget_bytes = ::Test::ResourceFindRequest
++                     .from_json('{"widgetBytes":["Bo0xSFAXOmI="]}')
++                     .widget_bytes.map { |s| s.unpack('C*') }
++
++      expect(widget_bytes).to(eq(expected_widget_bytes))
++    end
+   end
+ 
+   describe '.to_json' do
+diff --git a/spec/support/protos/resource.pb.rb b/spec/support/protos/resource.pb.rb
+index f81ef52f..e765b1ce 100644
+--- a/spec/support/protos/resource.pb.rb
++++ b/spec/support/protos/resource.pb.rb
+@@ -72,6 +72,7 @@ class ResourceFindRequest
+     optional :bool, :active, 2
+     repeated :string, :widgets, 3
+     repeated :bytes, :widget_bytes, 4
++    optional :bytes, :single_bytes, 5
+   end
+ 
+   class ResourceSleepRequest
+@@ -169,4 +170,3 @@ class ResourceService < ::Protobuf::Rpc::Service
+   end
+ 
+ end
+-
+diff --git a/spec/support/protos/resource.proto b/spec/support/protos/resource.proto
+index 70b338b3..a5573e24 100644
+--- a/spec/support/protos/resource.proto
++++ b/spec/support/protos/resource.proto
+@@ -47,6 +47,7 @@ message ResourceFindRequest {
+   optional bool active = 2;
+   repeated string widgets = 3;
+   repeated bytes widget_bytes = 4;
++  optional bytes single_bytes = 5;
+ }
+ 
+ message ResourceSleepRequest {
