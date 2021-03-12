@@ -3,7 +3,7 @@
 
 Name: rubygem-%{gem_name}
 Version: 3.10.3
-Release: 1.6%{?dist}
+Release: 1.7%{?dist}
 Summary: Google Protocol Buffers serialization and RPC implementation for Ruby
 License: MIT
 URL: https://github.com/localshred/protobuf
