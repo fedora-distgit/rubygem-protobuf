@@ -1,8 +1,8 @@
 diff --git a/lib/protobuf/field/bytes_field.rb b/lib/protobuf/field/bytes_field.rb
-index 81a3634d..e120835c 100644
+index 81a3634..e120835 100644
 --- a/lib/protobuf/field/bytes_field.rb
 +++ b/lib/protobuf/field/bytes_field.rb
-@@ -48,7 +48,18 @@ def wire_type
+@@ -48,7 +48,18 @@ module Protobuf
  
        def coerce!(value)
          case value
@@ -22,7 +22,7 @@ index 81a3634d..e120835c 100644
            value.to_s
          when NilClass
            nil
-@@ -59,7 +70,7 @@ def coerce!(value)
+@@ -59,7 +70,7 @@ module Protobuf
          end
        end
  
@@ -32,10 +32,10 @@ index 81a3634d..e120835c 100644
        end
      end
 diff --git a/lib/protobuf/field/enum_field.rb b/lib/protobuf/field/enum_field.rb
-index 6993faff..12867adf 100644
+index 6993faf..12867ad 100644
 --- a/lib/protobuf/field/enum_field.rb
 +++ b/lib/protobuf/field/enum_field.rb
-@@ -37,6 +37,11 @@ def coerce!(value)
+@@ -37,6 +37,11 @@ module Protobuf
          type_class.fetch(value) || fail(TypeError, "Invalid Enum value: #{value.inspect} for #{name}")
        end
  
@@ -48,10 +48,10 @@ index 6993faff..12867adf 100644
  
        ##
 diff --git a/lib/protobuf/field/field_array.rb b/lib/protobuf/field/field_array.rb
-index e4f2eb1a..47f9c379 100644
+index e4f2eb1..47f9c37 100644
 --- a/lib/protobuf/field/field_array.rb
 +++ b/lib/protobuf/field/field_array.rb
-@@ -49,14 +49,14 @@ def to_hash_value
+@@ -49,14 +49,14 @@ module Protobuf
        # Return a hash-representation of the given values for this field type
        # that is safe to convert to JSON.
        # The value in this case would be an array.
@@ -68,7 +68,7 @@ index e4f2eb1a..47f9c379 100644
            end
          end
        end
-@@ -81,6 +81,8 @@ def normalize(value)
+@@ -81,6 +81,8 @@ module Protobuf
  
          if field.is_a?(::Protobuf::Field::EnumField)
            field.type_class.fetch(value)
@@ -78,10 +78,10 @@ index e4f2eb1a..47f9c379 100644
            value
          elsif field.is_a?(::Protobuf::Field::MessageField) && value.respond_to?(:to_hash)
 diff --git a/lib/protobuf/field/field_hash.rb b/lib/protobuf/field/field_hash.rb
-index 36b26447..94eedbb9 100644
+index 36b2644..94eedbb 100644
 --- a/lib/protobuf/field/field_hash.rb
 +++ b/lib/protobuf/field/field_hash.rb
-@@ -58,14 +58,14 @@ def to_hash_value
+@@ -58,14 +58,14 @@ module Protobuf
        # The value in this case would be the hash itself, right? Unfortunately
        # not because the values of the map could be messages themselves that we
        # need to transform.
@@ -99,10 +99,10 @@ index 36b26447..94eedbb9 100644
          end
        end
 diff --git a/lib/protobuf/field/int64_field.rb b/lib/protobuf/field/int64_field.rb
-index 3b338894..f2597b25 100644
+index 3b33889..f2597b2 100644
 --- a/lib/protobuf/field/int64_field.rb
 +++ b/lib/protobuf/field/int64_field.rb
-@@ -29,6 +29,13 @@ def acceptable?(val)
+@@ -29,6 +29,13 @@ module Protobuf
          return false
        end
  
@@ -117,10 +117,10 @@ index 3b338894..f2597b25 100644
    end
  end
 diff --git a/lib/protobuf/field/sint64_field.rb b/lib/protobuf/field/sint64_field.rb
-index 2aba7dfa..0c1c0856 100644
+index 2aba7df..0c1c085 100644
 --- a/lib/protobuf/field/sint64_field.rb
 +++ b/lib/protobuf/field/sint64_field.rb
-@@ -16,6 +16,13 @@ def self.min
+@@ -16,6 +16,13 @@ module Protobuf
          INT64_MIN
        end
  
@@ -135,10 +135,10 @@ index 2aba7dfa..0c1c0856 100644
    end
  end
 diff --git a/lib/protobuf/field/string_field.rb b/lib/protobuf/field/string_field.rb
-index 6c9c278f..551bdd23 100644
+index 6c9c278..551bdd2 100644
 --- a/lib/protobuf/field/string_field.rb
 +++ b/lib/protobuf/field/string_field.rb
-@@ -43,7 +43,7 @@ def encode(value)
+@@ -43,7 +43,7 @@ module Protobuf
          "#{::Protobuf::Field::VarintField.encode(value_to_encode.bytesize)}#{value_to_encode}"
        end
  
@@ -148,10 +148,10 @@ index 6c9c278f..551bdd23 100644
        end
      end
 diff --git a/lib/protobuf/field/uint64_field.rb b/lib/protobuf/field/uint64_field.rb
-index 8a060f14..df041fc5 100644
+index 8a060f1..df041fc 100644
 --- a/lib/protobuf/field/uint64_field.rb
 +++ b/lib/protobuf/field/uint64_field.rb
-@@ -16,6 +16,13 @@ def self.min
+@@ -16,6 +16,13 @@ module Protobuf
          0
        end
  
@@ -166,10 +166,10 @@ index 8a060f14..df041fc5 100644
    end
  end
 diff --git a/lib/protobuf/message.rb b/lib/protobuf/message.rb
-index a13c0d19..b5b723f5 100644
+index a13c0d1..eca075d 100644
 --- a/lib/protobuf/message.rb
 +++ b/lib/protobuf/message.rb
-@@ -21,6 +21,22 @@ def self.to_json
+@@ -21,6 +21,22 @@ module Protobuf
        name
      end
  
@@ -192,7 +192,7 @@ index a13c0d19..b5b723f5 100644
      ##
      # Constructor
      #
-@@ -134,29 +150,36 @@ def to_hash_with_string_keys
+@@ -134,29 +150,36 @@ module Protobuf
      end
  
      def to_json(options = {})
@@ -226,7 +226,7 @@ index a13c0d19..b5b723f5 100644
                         end
  
 -        result[field.name] = hashed_value
-+        if proto3 && (hashed_value.nil? || value == field.class.default rescue field.default rescue nil)
++        if proto3 && (hashed_value.nil? || value == field.class.default)
 +          result.delete(field.name)
 +        else
 +          key = proto3 ? field.name.to_s.camelize(:lower).to_sym : field.name
@@ -236,10 +236,10 @@ index a13c0d19..b5b723f5 100644
  
        result
 diff --git a/spec/encoding/all_types_spec.rb b/spec/encoding/all_types_spec.rb
-index fbd38b46..04ddb866 100644
+index fbd38b4..04ddb86 100644
 --- a/spec/encoding/all_types_spec.rb
 +++ b/spec/encoding/all_types_spec.rb
-@@ -18,7 +18,7 @@
+@@ -18,7 +18,7 @@ RSpec.describe ::Protobuf do
        :optional_double => 112,
        :optional_bool => true,
        :optional_string => "115",
@@ -248,7 +248,7 @@ index fbd38b46..04ddb866 100644
        :optional_nested_message => Protobuf_unittest::TestAllTypes::NestedMessage.new(:bb => 118),
        :optional_foreign_message => Protobuf_unittest::ForeignMessage.new(:c => 119),
        :optional_import_message => Protobuf_unittest_import::ImportMessage.new(:d => 120),
-@@ -43,7 +43,7 @@
+@@ -43,7 +43,7 @@ RSpec.describe ::Protobuf do
        :repeated_double => [212, 312],
        :repeated_bool => [true, false],
        :repeated_string => ["215", "315"],
@@ -257,7 +257,7 @@ index fbd38b46..04ddb866 100644
        :repeated_nested_message => [
          ::Protobuf_unittest::TestAllTypes::NestedMessage.new(:bb => 218),
          ::Protobuf_unittest::TestAllTypes::NestedMessage.new(:bb => 318),
-@@ -88,7 +88,7 @@
+@@ -88,7 +88,7 @@ RSpec.describe ::Protobuf do
        :default_double => 412,
        :default_bool => false,
        :default_string => "415",
@@ -267,13 +267,13 @@ index fbd38b46..04ddb866 100644
        :default_foreign_enum => ::Protobuf_unittest::ForeignEnum::FOREIGN_FOO,
        :default_import_enum => ::Protobuf_unittest_import::ImportEnum::IMPORT_FOO,
 diff --git a/spec/encoding/extreme_values_spec.rb b/spec/encoding/extreme_values_spec.rb
-index 477e695a..7f3d516f 100644
+index 477e695..7f3d516 100644
 Binary files a/spec/encoding/extreme_values_spec.rb and b/spec/encoding/extreme_values_spec.rb differ
 diff --git a/spec/lib/protobuf/field/enum_field_spec.rb b/spec/lib/protobuf/field/enum_field_spec.rb
-index cd72760d..c2e04eed 100644
+index cd72760..c2e04ee 100644
 --- a/spec/lib/protobuf/field/enum_field_spec.rb
 +++ b/spec/lib/protobuf/field/enum_field_spec.rb
-@@ -23,4 +23,22 @@
+@@ -23,4 +23,22 @@ RSpec.describe Protobuf::Field::EnumField do
        expect(message.decode(instance.encode).enum).to eq(-33)
      end
    end
@@ -297,10 +297,10 @@ index cd72760d..c2e04eed 100644
 +  end
  end
 diff --git a/spec/lib/protobuf/field/fixed64_field_spec.rb b/spec/lib/protobuf/field/fixed64_field_spec.rb
-index d7feb120..00ad743a 100644
+index d7feb12..00ad743 100644
 --- a/spec/lib/protobuf/field/fixed64_field_spec.rb
 +++ b/spec/lib/protobuf/field/fixed64_field_spec.rb
-@@ -4,4 +4,30 @@
+@@ -4,4 +4,30 @@ RSpec.describe Protobuf::Field::Fixed64Field do
  
    it_behaves_like :packable_field, described_class
  
@@ -332,10 +332,10 @@ index d7feb120..00ad743a 100644
 +  end
  end
 diff --git a/spec/lib/protobuf/field/int64_field_spec.rb b/spec/lib/protobuf/field/int64_field_spec.rb
-index 1bbe7c04..d0c77d34 100644
+index 1bbe7c0..d0c77d3 100644
 --- a/spec/lib/protobuf/field/int64_field_spec.rb
 +++ b/spec/lib/protobuf/field/int64_field_spec.rb
-@@ -4,4 +4,30 @@
+@@ -4,4 +4,30 @@ RSpec.describe Protobuf::Field::Int64Field do
  
    it_behaves_like :packable_field, described_class
  
@@ -367,10 +367,10 @@ index 1bbe7c04..d0c77d34 100644
 +  end
  end
 diff --git a/spec/lib/protobuf/field/sfixed64_field_spec.rb b/spec/lib/protobuf/field/sfixed64_field_spec.rb
-index f380ed5d..7988f45f 100644
+index f380ed5..7988f45 100644
 --- a/spec/lib/protobuf/field/sfixed64_field_spec.rb
 +++ b/spec/lib/protobuf/field/sfixed64_field_spec.rb
-@@ -6,4 +6,30 @@
+@@ -6,4 +6,30 @@ RSpec.describe Protobuf::Field::Sfixed64Field do
      let(:value) { [-1, 0, 1] }
    end
  
@@ -402,10 +402,10 @@ index f380ed5d..7988f45f 100644
 +  end
  end
 diff --git a/spec/lib/protobuf/field/sint64_field_spec.rb b/spec/lib/protobuf/field/sint64_field_spec.rb
-index 84ca7304..e6fc05ff 100644
+index 84ca730..e6fc05f 100644
 --- a/spec/lib/protobuf/field/sint64_field_spec.rb
 +++ b/spec/lib/protobuf/field/sint64_field_spec.rb
-@@ -6,4 +6,30 @@
+@@ -6,4 +6,30 @@ RSpec.describe Protobuf::Field::Sint64Field do
      let(:value) { [-1, 0, 1] }
    end
  
@@ -437,10 +437,10 @@ index 84ca7304..e6fc05ff 100644
 +  end
  end
 diff --git a/spec/lib/protobuf/field/uint64_field_spec.rb b/spec/lib/protobuf/field/uint64_field_spec.rb
-index 61b8d1b9..90bc0306 100644
+index 61b8d1b..90bc030 100644
 --- a/spec/lib/protobuf/field/uint64_field_spec.rb
 +++ b/spec/lib/protobuf/field/uint64_field_spec.rb
-@@ -4,4 +4,30 @@
+@@ -4,4 +4,30 @@ RSpec.describe Protobuf::Field::Uint64Field do
  
    it_behaves_like :packable_field, described_class
  
@@ -472,10 +472,10 @@ index 61b8d1b9..90bc0306 100644
 +  end
  end
 diff --git a/spec/lib/protobuf/message_spec.rb b/spec/lib/protobuf/message_spec.rb
-index 96668b67..6a3f6d9c 100644
+index 96668b6..cd49753 100644
 --- a/spec/lib/protobuf/message_spec.rb
 +++ b/spec/lib/protobuf/message_spec.rb
-@@ -429,7 +429,7 @@
+@@ -429,7 +429,7 @@ RSpec.describe Protobuf::Message do
      specify { expect(subject.to_json).to eq '{"name":"Test Name","active":false}' }
  
      context 'for byte fields' do
@@ -484,12 +484,12 @@ index 96668b67..6a3f6d9c 100644
  
        subject do
          ::Test::ResourceFindRequest.new(:widget_bytes => [bytes])
-@@ -437,6 +437,36 @@
+@@ -437,6 +437,36 @@ RSpec.describe Protobuf::Message do
  
        specify { expect(subject.to_json).to eq '{"widget_bytes":["Bo0xSFAXOmI="]}' }
      end
 +
-+    context 'using proto3 produces lower case field names' do
++    context 'using lower camel case field names' do
 +      let(:bytes) { "\x06\x8D1HP\x17:b".force_encoding(Encoding::ASCII_8BIT) }
 +
 +      subject do
@@ -522,10 +522,10 @@ index 96668b67..6a3f6d9c 100644
  
    describe '.to_json' do
 diff --git a/spec/support/protos/resource.pb.rb b/spec/support/protos/resource.pb.rb
-index f81ef52f..e765b1ce 100644
+index f81ef52..e765b1c 100644
 --- a/spec/support/protos/resource.pb.rb
 +++ b/spec/support/protos/resource.pb.rb
-@@ -72,6 +72,7 @@ class ResourceFindRequest
+@@ -72,6 +72,7 @@ module Test
      optional :bool, :active, 2
      repeated :string, :widgets, 3
      repeated :bytes, :widget_bytes, 4
@@ -533,13 +533,13 @@ index f81ef52f..e765b1ce 100644
    end
  
    class ResourceSleepRequest
-@@ -169,4 +170,3 @@ class ResourceService < ::Protobuf::Rpc::Service
+@@ -169,4 +170,3 @@ module Test
    end
  
  end
 -
 diff --git a/spec/support/protos/resource.proto b/spec/support/protos/resource.proto
-index 70b338b3..a5573e24 100644
+index 70b338b..a5573e2 100644
 --- a/spec/support/protos/resource.proto
 +++ b/spec/support/protos/resource.proto
 @@ -47,6 +47,7 @@ message ResourceFindRequest {

@@ -3,18 +3,19 @@
 
 Name: rubygem-%{gem_name}
 Version: 3.10.3
-Release: 1.10%{?dist}
+Release: 1.11%{?dist}
 Summary: Google Protocol Buffers serialization and RPC implementation for Ruby
 License: MIT
 URL: https://github.com/localshred/protobuf
 Source0: https://rubygems.org/gems/%{gem_name}-%{version}.gem
-# We need patch from the cucumber fork to make protobuf compatible with cucumber-messages
-# Gemspec rename and version bumps were omitted from the diff by hand.
-# curl -L https://github.com/cucumber/protobuf/compare/v3.10.3...v3.10.8.diff -o rubygem-protobuf-3.10.3-cucumber-messages-compatibility.patch
-Patch0: %{name}-%{version}-cucumber-messages-compatibility.patch
-# For some reason spec/encoding/extreme_values_spec.rb does not appear in the previous patch properly
-# even though it should appear in previous diff creation, so when applying the file is unchanged and test fails.
-# Let's add the patch explicitly, it just enforces encoding in test case.
+# We need PRs #410 #411 #415 to satisfy requirements of rubygem-cucumber-messages.
+# git clone https://github.com/ruby-protobuf/protobuf.git && cd protobuf
+# git fetch origin pull/410/head:pr-410 && git fetch origin pull/411/head:pr-411 && git fetch origin pull/415/head:pr-415
+# git checkout v3.10.3 && git rebase pr-410 && git rebase pr-411 && git rebase pr-415
+# git diff v3.10.3 -U > rubygem-protobuf-3.10.3-generate-camel-cased-keys_add-message-from-json_64bit-int-as-json.patch
+Patch0: %{name}-%{version}-generate-camel-cased-keys_add-message-from-json_64bit-int-as-json.patch
+# For some reason git thinks that spec/encoding/extreme_values_spec.rb is a binary file
+# even though it should have appeared in previous diff creation, we need extra patch for that.
 Patch1: %{name}-%{version}-spec-extreme-values-force-ascii-utf8-encoding.patch
 BuildRequires: ruby(release)
 BuildRequires: rubygems-devel
