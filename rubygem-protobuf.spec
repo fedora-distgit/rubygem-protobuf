@@ -3,30 +3,30 @@
 
 Name: rubygem-%{gem_name}
 Version: 3.10.3
-Release: 1.7%{?dist}
+Release: 1.8%{?dist}
 Summary: Google Protocol Buffers serialization and RPC implementation for Ruby
 License: MIT
 URL: https://github.com/localshred/protobuf
 Source0: https://rubygems.org/gems/%{gem_name}-%{version}.gem
 # We need patch from the cucumber fork to make protobuf compatible with cucumber-messages
-# Gemspec rename and version bumps were omitted from the diff.
+# Gemspec rename and version bumps were omitted from the diff by hand.
 # curl -L https://github.com/cucumber/protobuf/compare/v3.10.3...v3.10.8.diff -o rubygem-protobuf-3.10.3-cucumber-messages-compatibility.patch
 Patch0: %{name}-%{version}-cucumber-messages-compatibility.patch
+# For some reason spec/encoding/extreme_values_spec.rb does not appear in the previous patch properly
+# even though it should appear in previous diff creation, so when applying the file is unchanged and test fails.
+# Let's add the patch explicitly, it just enforces encoding in test case.
+Patch1: %{name}-%{version}-spec-extreme-values-force-ascii-utf8-encoding.patch
 BuildRequires: ruby(release)
 BuildRequires: rubygems-devel
 BuildRequires: ruby
-# BuildRequires: rubygem(ffi-rzmq)
 BuildRequires: rubygem(rspec)
-# BuildRequires: rubygem(parser) = 2.3.0.6
-# BuildRequires: rubygem(timecop)
-# BuildRequires: rubygem(yard)
-# BuildRequires: rubygem(varint)
-# BuildRequires: rubygem(ruby-prof)
 BuildRequires: rubygem(middleware)
 BuildRequires: rubygem(activesupport)
 BuildRequires: rubygem(timecop)
 BuildRequires: rubygem(thor)
 BuildRequires: rubygem(thread_safe)
+# rubygem-ffi-rzmq is currently not in fedora.
+# BuildRequires: rubygem(ffi-rzmq)
 BuildArch: noarch
 
 %description
@@ -45,6 +45,7 @@ Documentation for %{name}.
 %setup -q -n %{gem_name}-%{version}
 
 %patch0 -p1
+%patch1 -p1
 
 %build
 gem build ../%{gem_name}-%{version}.gemspec
@@ -71,8 +72,8 @@ sed -i -e '/require .pry./ s/^/#/g' \
        -e '/^Bundler\./ s/^/#/g' \
   spec/spec_helper.rb
 
-# ffi-rzmq is not in fedora
-# Removing the require does not seem to affect the test suite anyway
+# rubygem-ffi-rzmq is not in fedora
+# Removing the require does not seem to affect this test anyway
 # as long as we require the correct file instead.
 sed -i -e "s/require .protobuf\/zmq./require 'protobuf\/rpc\/connectors\/ping'/g" \
   spec/lib/protobuf/rpc/connectors/ping_spec.rb
@@ -90,13 +91,10 @@ for file in  spec/lib/protobuf/rpc/servers/zmq/server_spec.rb \
 
   mv $file{,.disabled}
 done
-
-# Binary mismatch :/ not sure why it happens
-mv ./spec/encoding/extreme_values_spec.rb{,.disabled}
-
+# Another ffi-zmq test that needs disabling.
 sed -i -e "/context ..*zmq.*. do/,/^      end$/ s/^/#/g" spec/lib/protobuf/cli_spec.rb
 
-LANG="en_US.UTF-8" rspec spec
+rspec spec
 popd
 
 %files
