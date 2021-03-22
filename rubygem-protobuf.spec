@@ -8,15 +8,15 @@ Summary: Google Protocol Buffers serialization and RPC implementation for Ruby
 License: MIT
 URL: https://github.com/localshred/protobuf
 Source0: https://rubygems.org/gems/%{gem_name}-%{version}.gem
-# We need PRs #410 #411 #415 to satisfy requirements of rubygem-cucumber-messages.
-# git clone https://github.com/ruby-protobuf/protobuf.git && cd protobuf
-# git fetch origin pull/410/head:pr-410 && git fetch origin pull/411/head:pr-411 && git fetch origin pull/415/head:pr-415
-# git checkout v3.10.3 && git rebase pr-410 && git rebase pr-411 && git rebase pr-415
-# git diff v3.10.3 -U > rubygem-protobuf-3.10.3-generate-camel-cased-keys_add-message-from-json_64bit-int-as-json.patch
-Patch0: %{name}-%{version}-generate-camel-cased-keys_add-message-from-json_64bit-int-as-json.patch
-# For some reason git thinks that spec/encoding/extreme_values_spec.rb is a binary file
+# We need the following PRs for compatibility with rubygem-cucumber-messages.
+# https://github.com/ruby-protobuf/protobuf/pull/410
+# https://github.com/ruby-protobuf/protobuf/pull/411
+# https://github.com/ruby-protobuf/protobuf/pull/415
+# TODO: join the second patch with first one (fix to apply cleanly). E.g.:
+#    cat  %{name}-%{version}-spec-extreme-values-force-ascii-utf8-encoding.patch \
+#         %{name}-%{version}-generate-camel-cased-keys_add-message-from-json_64bit-int-as-json.patch > joined.patch
+# 
 # even though it should have appeared in previous diff creation, we need extra patch for that.
-Patch1: %{name}-%{version}-spec-extreme-values-force-ascii-utf8-encoding.patch
 BuildRequires: ruby(release)
 BuildRequires: rubygems-devel
 BuildRequires: ruby
@@ -26,7 +26,7 @@ BuildRequires: rubygem(activesupport)
 BuildRequires: rubygem(timecop)
 BuildRequires: rubygem(thor)
 BuildRequires: rubygem(thread_safe)
-# rubygem-ffi-rzmq is currently not in fedora.
+# rubygem-ffi-rzmq is not a runtime dependency.
 # BuildRequires: rubygem(ffi-rzmq)
 BuildArch: noarch
 
@@ -73,14 +73,10 @@ sed -i -e '/require .pry./ s/^/#/g' \
        -e '/^Bundler\./ s/^/#/g' \
   spec/spec_helper.rb
 
-# rubygem-ffi-rzmq is not in fedora
-# Removing the require does not seem to affect this test anyway
-# as long as we require the correct file instead.
+# Bypass require, as we don't have ffi-rzmq.
+# The second test fails without internet access.
 sed -i -e "s/require .protobuf\/zmq./require 'protobuf\/rpc\/connectors\/ping'/g" \
-  spec/lib/protobuf/rpc/connectors/ping_spec.rb
-
-# This test fails only without access to internet.
-sed -i -e '/context .when a select timeout is fired./,/^    end$/ s/^/#/' \
+       -e '/context .when a select timeout is fired./,/^    end$/ s/^/#/' \
   spec/lib/protobuf/rpc/connectors/ping_spec.rb
 
 # There is not currently a ffi-rzmq gem in Fedora,
@@ -89,11 +85,11 @@ for file in  spec/lib/protobuf/rpc/servers/zmq/server_spec.rb \
              spec/lib/protobuf/rpc/servers/zmq/util_spec.rb \
              spec/functional/zmq_server_spec.rb \
 	     spec/lib/protobuf/rpc/connectors/zmq_spec.rb ; do
-
   mv $file{,.disabled}
 done
 # Another ffi-zmq test that needs disabling.
-sed -i -e "/context ..*zmq.*. do/,/^      end$/ s/^/#/g" spec/lib/protobuf/cli_spec.rb
+sed -i -e "/context ..*zmq.*. do/,/^      end$/ s/^/#/g" \
+  spec/lib/protobuf/cli_spec.rb
 
 rspec spec
 popd
