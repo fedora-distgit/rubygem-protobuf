@@ -550,3 +550,23 @@ index 70b338b..a5573e2 100644
  }
  
  message ResourceSleepRequest {
+--- a/spec/encoding/extreme_values_spec.rb	2021-03-16 09:59:12.864960277 +0100
++++ b/spec/encoding/extreme_values_spec.rb	2021-03-12 18:22:09.951286951 +0100
+@@ -4,7 +4,7 @@
+ RSpec.describe ::Protobuf do
+   it "correctly encodes extreme values" do
+     message = Protobuf_unittest::TestExtremeDefaultValues.new(
+-      :escaped_bytes => "\0\001\a\b\f\n\r\t\v\\\'\"\xfe",
++      :escaped_bytes => "\0\001\a\b\f\n\r\t\v\\\'\"\xfe".force_encoding(Encoding::ASCII_8BIT),
+       :large_uint32 => 4294967295,
+       :large_uint64 => 18446744073709551615,
+       :small_int32 => -2147483647,
+@@ -27,7 +27,7 @@
+       :really_small_int32 => -2147483648,
+       :really_small_int64 => -9223372036854775808,
+       :string_with_zero => "hel lo",
+-      :bytes_with_zero => "wor ld",
++      :bytes_with_zero => "wor ld".force_encoding(Encoding::ASCII_8BIT),
+       :string_piece_with_zero => "ab c",
+       :cord_with_zero => "12 3",
+     )
