@@ -3,9 +3,9 @@
 
 Name: rubygem-%{gem_name}
 Version: 3.10.3
-Release: 1.12%{?dist}
+Release: 1%{?dist}
 Summary: Google Protocol Buffers serialization and RPC implementation for Ruby
-License: MIT
+License: MIT and BSD
 URL: https://github.com/localshred/protobuf
 Source0: https://rubygems.org/gems/%{gem_name}-%{version}.gem
 # We need the following PRs for compatibility with rubygem-cucumber-messages.
@@ -79,7 +79,7 @@ sed -i -e "s/require .protobuf\/zmq./require 'protobuf\/rpc\/connectors\/ping'/g
 for file in  spec/lib/protobuf/rpc/servers/zmq/server_spec.rb \
              spec/lib/protobuf/rpc/servers/zmq/util_spec.rb \
              spec/functional/zmq_server_spec.rb \
-	     spec/lib/protobuf/rpc/connectors/zmq_spec.rb ; do
+             spec/lib/protobuf/rpc/connectors/zmq_spec.rb ; do
   mv $file{,.disabled}
 done
 # Another ffi-zmq test that needs disabling.
@@ -115,5 +115,5 @@ popd
 %{gem_instdir}/install-protobuf.sh
 
 %changelog
-* Fri Oct 30 2020 Pavel Valena <pvalena@redhat.com> - 3.10.3-1
+* Fri Oct 30 2020 Jarek Prokop <jprokop@redhat.com> - 3.10.3-1
 - Initial package
